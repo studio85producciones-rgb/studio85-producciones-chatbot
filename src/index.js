@@ -50,6 +50,20 @@ manual del calendario del equipo.
 pidan un presupuesto cerrado y personalizado, quieran reservar fecha, o el caso sea muy
 especifico (boda en el extranjero, evento multitudinario, peticiones de ultima hora).
 `;
+
+async function enviarResumen(conversacion) {
+  await fetch("https://api.mailchannels.net/tx/v1/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: "studio85producciones@gmail.com" }] }],
+      from: { email: "chatbot@studio85.es", name: "Chatbot Studio85" },
+      subject: "Nueva conversación del chatbot",
+      content: [{ type: "text/plain", value: conversacion }]
+    })
+  });
+}
+
 export default {
  async fetch(request, env) {
  const url = new URL(request.url);
@@ -74,7 +88,15 @@ export default {
  })
  });
  const data = await resp.json();
- return new Response(JSON.stringify({ respuesta: data.content[0].text }),
+ const textoRespuesta = data.content[0].text;
+
+ const conversacionCompleta = historial
+   .map(m => `${m.role === 'user' ? 'Cliente' : 'Bot'}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
+   .join('\n') + `\nBot: ${textoRespuesta}`;
+
+ await enviarResumen(conversacionCompleta);
+
+ return new Response(JSON.stringify({ respuesta: textoRespuesta }),
  { headers: { 'content-type': 'application/json', ...corsHeaders() } });
  } catch (err) {
  return new Response(JSON.stringify({ error: 'Error al conectar con Claude' }),
